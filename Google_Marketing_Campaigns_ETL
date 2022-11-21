@@ -1,0 +1,48 @@
+SELECT -----------------------------------Calculates metrics from marketing campaigns---------------------------------------
+max(a._DATA_DATE) as updated_until,
+b._data_date as event_date,
+a.CampaignId as Campaign_Id,
+CampaignName,
+    max(safe_divide(Amount,1000000))as budget,
+        case when AdvertisingChannelType is null 
+            then "Discovery" else AdvertisingChannelType end as 
+Campaign_type,
+CampaignStatus,
+startdate,
+        case when EndDate is null then "running" end as 
+EndDate,
+        case when DATE_DIFF(EndDate,StartDate,day)is null 
+                then concat("running", " ", DATE_DIFF(current_date,StartDate,day),"(d)") end as 
+  Runtime,
+------------------------------------------------------------------------------------------------------------------------------------
+coalesce (round( safe_divide(sum(safe_divide(cost,100000)) , sum(ActiveViewImpressions)) ,2),0)as AverageCpv,
+round( safe_divide(sum(safe_divide(cost,1000000)) ,  sum(safe_divide(Impressions,1000))),2) as avg_cpm,
+sum(Impressions) as Impressions,
+sum(Interactions) as Interactions,
+round( (safe_divide(sum(Interactions), sum(Impressions))) *1,4) as Interaction_rate,
+coalesce ( round( safe_divide(  sum (safe_divide(cost,1000000)), sum(Interactions)) ,2),0) as avg_cost,
+round(sum(safe_divide(cost,1000000)),2) as Cost,
+coalesce (  safe_divide(sum(clicks), sum(ActiveViewImpressions))*10 ,0) as Viewable_CTR  ,
+coalesce (round(safe_divide( sum(safe_divide(cost,1000000)),  sum(safe_divide(ActiveViewImpressions,1000))),2),0) as Avg_Viewable_CPM,
+coalesce (sum(ActiveViewImpressions),0) as Viewable_impr,
+sum(clicks) as clicks,
+safe_divide( sum(Conversions), sum(Interactions)) as Conv_Rate,
+sum(Conversions) as Conversions,
+-- safe_divide(safe_divide(sum(cost),sum(clicks)),1000000) as AVG_CPC,
+coalesce (safe_divide(round(sum(safe_divide(cost,1000000)),2), sum(Conversions)),0) as cost_conv,
+-- index()
+
+
+
+      from  (select * from `pyramidcloudoffering.Google_Ads.CampaignBasicStats_9082325080` union all 
+                select * from `pyramidcloudoffering.Google_Ads.Ads_transferers_31oct `)  as b
+
+     inner join (select * from `pyramidcloudoffering.Google_Ads.Campaign_9082325080` union all 
+      select * from `pyramidcloudoffering.Google_Ads.Campaign_table_31oct`)  as a
+     on a.CampaignId = b.CampaignId
+      and a._DATA_DATE = b._LATEST_DATE
+
+      group by
+2,3,4,6,7,8,9,10
+     order by 
+3,2
