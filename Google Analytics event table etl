@@ -55,7 +55,9 @@ max(case when params.key = 	'non_interaction'	then params.value.string_valu
 max(case when params.key = 	'event_category'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	event_category,
 max(case when params.key = 	'event_label'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	event_label,
 
-    FROM `pyramidcloudoffering.analytics_284934897.events_intraday_*` as events
+    FROM (select * from `pyramidcloudoffering.analytics_284934897.events_intraday_*` 
+    union all
+                select * from `pyramidcloudoffering.analytics_284934897.events_*`)  as events
     left join unnest(event_params) as params
 
         )        ,
