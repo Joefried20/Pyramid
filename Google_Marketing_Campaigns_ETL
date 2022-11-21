@@ -1,7 +1,54 @@
+  With campaigns_daily as(
+      select  distinct
+campaignname, 
+a.CampaignId,
+date as event_date,
+max(	BaseCampaignId	) over (partition by date,a.CampaignId) as 	BaseCampaignId	,
+max(	a.CampaignGroupId	) over (partition by date,a.CampaignId) as 	CampaignGroupId	,
+max(	a.ExternalCustomerId	) over (partition by date,a.CampaignId) as 	ExternalCustomerId	,
+max(	ActiveViewImpressions	) over (partition by date,a.CampaignId) as 	ActiveViewImpressions	,
+max(	ActiveViewMeasurability	) over (partition by date,a.CampaignId) as 	ActiveViewMeasurability	,
+max(	ActiveViewMeasurableCost	) over (partition by date,a.CampaignId) as 	ActiveViewMeasurableCost	,
+max(	ActiveViewMeasurableImpressions	) over (partition by date,a.CampaignId) as 	ActiveViewMeasurableImpressions	,
+max(	ActiveViewViewability	) over (partition by date,a.CampaignId) as 	ActiveViewViewability	,
+max(	AdNetworkType1	) over (partition by date,a.CampaignId) as 	AdNetworkType1	,
+max(	AdNetworkType2	) over (partition by date,a.CampaignId) as 	AdNetworkType2	,
+max(	AveragePosition	) over (partition by date,a.CampaignId) as 	AveragePosition	,
+sum(	distinct Clicks	) over (partition by date,a.CampaignId) as 	Clicks	,
+sum(	distinct ConversionValue	) over (partition by date,a.CampaignId) as 	ConversionValue	,
+sum(	distinct Conversions	) over (partition by date,a.CampaignId) as 	Conversions	,
+sum(	distinct Cost	) over (partition by date,a.CampaignId) as 	Cost	,
+max(	Device	) over (partition by date,a.CampaignId) as 	Device	,
+sum(	distinct Impressions	) over (partition by date,a.CampaignId) as 	Impressions	,
+max(	InteractionTypes	) over (partition by date,a.CampaignId) as 	InteractionTypes	,
+sum(	distinct Interactions	) over (partition by date,a.CampaignId) as 	Interactions	,
+max(	Slot	) over (partition by date,a.CampaignId) as 	Slot	,
+max(	ViewThroughConversions	) over (partition by date,a.CampaignId) as 	ViewThroughConversions	,
+max(	a._LATEST_DATE	) over (partition by date,a.CampaignId) as 	_LATEST_DATE	,
+max(	a._DATA_DATE	) over (partition by date,a.CampaignId) as 	_DATA_DATE	,
+max(	Amount	) over (partition by a.CampaignId,date) as 	Amount,
+max(	AdvertisingChannelType	) over (partition by a.CampaignId,date) as 	AdvertisingChannelType,
+max(	CampaignStatus	) over (partition by a.CampaignId,date) as 	CampaignStatus,
+max(	startdate 	) over (partition by a.CampaignId,date) as 	startdate ,
+max(	EndDate	) over (partition by a.CampaignId,date) as 	EndDate
+
+
+
+from  (select * from `pyramidcloudoffering.Google_Ads.CampaignBasicStats_9082325080` union all 
+                select * from `pyramidcloudoffering.Google_Ads.Ads_transferers_31oct ` where date not between "2022-11-11" and  "2022-11-15")  as a
+
+                     inner join (select * from `pyramidcloudoffering.Google_Ads.Campaign_9082325080` union all 
+      select * from `pyramidcloudoffering.Google_Ads.Campaign_table_31oct`)  as b
+     on a.CampaignId = b.CampaignId 
+     and (a._DATA_DATE = b._data_date  or a._DATA_DATE = a.date)
+
+
+order by 1,2,3)
+
 SELECT -----------------------------------Calculates metrics from marketing campaigns---------------------------------------
-max(a._DATA_DATE) as updated_until,
-b._data_date as event_date,
-a.CampaignId as Campaign_Id,
+max(_LATEST_DATE) as updated_until,
+event_date,
+CampaignId as Campaign_Id,
 CampaignName,
     max(safe_divide(Amount,1000000))as budget,
         case when AdvertisingChannelType is null 
@@ -12,7 +59,7 @@ startdate,
         case when EndDate is null then "running" end as 
 EndDate,
         case when DATE_DIFF(EndDate,StartDate,day)is null 
-                then concat("running", " ", DATE_DIFF(current_date,StartDate,day),"(d)") end as 
+                then DATE_DIFF(current_date,StartDate,day) end as 
   Runtime,
 ------------------------------------------------------------------------------------------------------------------------------------
 coalesce (round( safe_divide(sum(safe_divide(cost,100000)) , sum(ActiveViewImpressions)) ,2),0)as AverageCpv,
@@ -32,17 +79,9 @@ sum(Conversions) as Conversions,
 coalesce (safe_divide(round(sum(safe_divide(cost,1000000)),2), sum(Conversions)),0) as cost_conv,
 -- index()
 
-
-
-      from  (select * from `pyramidcloudoffering.Google_Ads.CampaignBasicStats_9082325080` union all 
-                select * from `pyramidcloudoffering.Google_Ads.Ads_transferers_31oct `)  as b
-
-     inner join (select * from `pyramidcloudoffering.Google_Ads.Campaign_9082325080` union all 
-      select * from `pyramidcloudoffering.Google_Ads.Campaign_table_31oct`)  as a
-     on a.CampaignId = b.CampaignId
-      and a._DATA_DATE = b._LATEST_DATE
+from campaigns_daily
 
       group by
 2,3,4,6,7,8,9,10
      order by 
-3,2
+3,2,4
