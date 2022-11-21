@@ -1,0 +1,88 @@
+with GA_events as(
+        SELECT distinct  
+PARSE_DATE( '%Y%m%d',Cast(event_date AS String)) as event_date,
+TIMESTAMP_MICROS(event_timestamp)as event_ts,
+cast(event_timestamp as string) as event_timestamp,
+FORMAT_DATETIME('%T',TIMESTAMP_MICROS(event_timestamp) )as event_timestamp_for_trunc,
+
+max(case when params.key = "ga_session_id" then params.value.int_value else null end) over (partition by event_timestamp,user_pseudo_id)as ga_session_id,
+user_pseudo_id,
+event_name,
+max(case when params.key = "page_title" then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as page_title,
+max(case when params.key = "page_location" then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as page_location,
+max(case when params.key = "page_referrer" then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as page_referrer,
+max(case when params.key = 	'medium'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	medium,
+max(case when params.key = 	'campaign'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	campaign,
+cast(max(case when params.key = 	'campaign' and LENGTH(params.value.string_value) =11	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as int)as 	campaign_id,
+max(case when params.key = 	'search_term'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	search_term,
+max(case when params.key = 	'ga_session_number'	then params.value.int_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	ga_session_number,
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TIMESTAMP_MICROS(event_timestamp) as user_first_touch_timestamp,
+geo.country as country,
+geo.city as city,
+geo.continent as continent, 
+device.language as language,
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+device.category as device_category,
+device.mobile_brand_name as device_brand,
+device.mobile_model_name as device_model,
+device.operating_system as device_os,
+device.web_info.hostname as device_web_info_hostname,
+device.is_limited_ad_tracking as device_is_limited_ad_tracking,
+stream_id,
+event_bundle_sequence_id,
+traffic_source.name as traffic_name,
+traffic_source.medium as traffic_medium,
+traffic_source.source as traffic_source,
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+max(case when params.key = 	'session_engaged'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	session_engaged,
+max(case when params.key = 	'debug_mode'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	debug_mode,
+max(case when params.key = 	'entrances'	then params.value.int_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	entrances,
+max(case when params.key = 	'source'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	source,
+max(case when params.key = 	'ignore_referrer'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	ignore_referrer,
+max(case when params.key = 	'content'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	content,
+max(case when params.key = 	'term'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	term,
+max(case when params.key = 	'gclid'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	gclid,
+max(case when params.key = 	'engagement_time_msec'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	engagement_time_msec,
+max(case when params.key = 	'percent_scrolled'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	percent_scrolled,
+max(case when params.key = 	'engaged_session_event'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	engaged_session_event,
+max(case when params.key = 	'unique_search_term'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	unique_search_term,
+max(case when params.key = 	'link_url'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	link_url,
+max(case when params.key = 	'outbound'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	outbound,
+max(case when params.key = 	'link_domain'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	link_domain,
+max(case when params.key = 	'non_interaction'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	non_interaction,
+max(case when params.key = 	'event_category'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	event_category,
+max(case when params.key = 	'event_label'	then params.value.string_value else null end) over (partition by event_timestamp,user_pseudo_id)as 	event_label,
+
+    FROM `pyramidcloudoffering.analytics_284934897.events_intraday_*` as events
+    left join unnest(event_params) as params
+
+        )        ,
+-------------------------------------------------Calculates the missing Session_ids---------by-Timestame-------------------------------------------------------------------------------------
+        calc as(
+        select
+    case when ga_session_id is null then 
+        cast(SUBSTR(first_value(event_timestamp) over (partition by event_timestamp_for_trunc,page_referrer,medium order by event_timestamp),0,10)as int64)
+             else ga_session_id end as
+ga_session_id,
+*
+except(ga_session_id,event_timestamp,event_timestamp_for_trunc)
+        from GA_events
+        order by
+event_timestamp
+    )
+-------------------------------------------------Calculates the missing user_pseodo_ids---------by-Timestame (from the session_id divided by the same session id for different user_pseodo_ids)
+        select 
+        event_ts as event_timestamp,
+        event_date,
+case when user_pseudo_id is null 
+    then concat(ga_session_id,".", CEIL(ga_session_id/2))
+        else user_pseudo_id end as  
+user_pseudo_id ,
+ga_session_id as session_id,
+*
+except (user_pseudo_id,event_ts,event_date,ga_session_id)
+
+ from calc
+ order by event_ts,user_pseudo_id,session_id
