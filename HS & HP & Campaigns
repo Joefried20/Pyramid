@@ -1,0 +1,92 @@
+  select
+FORMAT_DATE("%b - %Y",a.event_date) as date,
+campaign_name,
+round(sum(cost),2)cost,
+  case when sum(cost) is not null then "USD" end as
+currency,
+sum(impressions)impressions,
+sum(clicks) clicks,
+cast(sum(conversions)as int)conversions,
+sum(first_visits)first_visits,
+sum(scrolls) scrolls,
+sum(homepage_clicks)homepage_clicks,
+sum(file_download) + sum(Email_Captured) +sum(one_on_one_page_view) as homepage_conversions,
+count(  property_lifecyclestage) as total_leads,
+  count(case when property_lifecyclestage = "marketingqualifiedlead" then 1 end) as 
+MQLs,
+  count(case when property_lifecyclestage = "lead" then 1 end) as 
+regular_leads,
+  count(case when property_lifecyclestage = "opportunity" then 1 end) as	
+opportunity,
+  count(case when property_lifecyclestage = "other" then 1 end) as	
+other,
+  count(case when property_lifecyclestage = "customer" then 1 end) as	
+customer,
+  count(case when property_lifecyclestage = "evangelist" then 1 end) as	
+evangelist,
+  count(case when property_lifecyclestage = "subscriber" then 1 end) as	
+subscriber,
+  count(case when property_lifecyclestage = "null" then 1 end) as	
+unknown,
+  count(case when property_lifecyclestage = "salesqualifiedlead" then 1 end) as	
+salesqualifiedleads
+
+
+  from `Marketing_Sources_Data.Fact_Google_Ads_Campaigns_Daily` as a
+  inner join (
+--------------------------------------granulates the homepage events to a dailly campaign veiw----------------------------------------------------------------------
+  SELECT
+event_date,
+campaign_key,
+campaign_type,
+medium,
+source,
+Sum(user_count	)	user_count	,
+Sum(distinct_user_count	)	distinct_user_count	,
+Sum(page_views	)	page_views	,
+Sum(first_visits	)	first_visits	,
+Sum(user_engagements	)	user_engagements	,
+Sum(scrolls	)	scrolls	,
+Sum(homepage_clicks	)	homepage_clicks	,
+Sum(file_download	)	file_download	,
+Sum(one_on_one_demo	)	one_on_one_demo	,
+Sum(one_on_one_page_view	)	one_on_one_page_view	,
+Sum(Email_Captured	)	Email_Captured	,
+Sum(Referredby_Google	)	Referredby_Google	,
+Sum(Referredby_Amazon	)	Referredby_Amazon	,
+Sum(Referredby_Linkedin	)	Referredby_Linkedin	,
+Sum(Referredby_YouTube	)	Referredby_YouTube	,
+Sum(ppc_traffic	)	ppc_traffic	,
+Sum(media_traffic	)	media_traffic	,
+Sum(referral_traffic	)	referral_traffic	,
+Sum(organic_traffic	)	organic_traffic	,
+Sum(email_traffic	)	email_traffic	,
+Sum(paid_traffic	)	paid_traffic	,
+Sum(pressrelease_traffic	)	pressrelease_traffic	,
+Sum(_6s_traffic	)	_6s_traffic
+  FROM `pyramidcloudoffering.Marketing_Sources_Data.Fact_Homepage_Events_Daily`
+group by
+1,2,3,4,5
+-----------------------------------------------------------------------------------------------------------------------------------------
+                                                                                    ) as b
+
+  on
+a.campaign_id = b.campaign_key
+  and 
+a.event_date = b.event_date
+
+
+ left join `pyramidcloudoffering.hubspot.contact` as c
+  on 
+c.property_hs_analytics_source_data_1 = a.campaign_id
+and 
+date(c.property_hs_analytics_first_timestamp) = a.event_date
+and 
+property_hs_analytics_source = "PAID_SEARCH"
+
+  where 
+a.event_date between '2022-10-31' and current_date()
+group by
+   1,2
+order by
+   2 desc ,1 desc
